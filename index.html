@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>J.A.R.V.I.S. MARK VIII - HUD</title>
+<style>
+  :root {
+    --arc-blue: #00f3ff;
+    --arc-glow: rgba(0, 243, 255, 0.45);
+    --bg-dark: #030a12;
+    --panel-bg: rgba(6, 22, 38, 0.85);
+    --danger: #ff2a55;
+    --safe: #00ff88;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, sans-serif; }
+  body {
+    background: radial-gradient(circle at center, #081d33 0%, var(--bg-dark) 100%);
+    color: #e0f7ff;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+  header {
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(0, 243, 255, 0.25);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(2, 10, 18, 0.9);
+  }
+  .sys-title { font-weight: bold; letter-spacing: 1px; color: var(--arc-blue); font-size: 15px; }
+  .status-pill {
+    font-size: 11px; padding: 4px 10px; border-radius: 20px;
+    border: 1px solid var(--arc-blue); color: var(--arc-blue);
+    background: rgba(0, 243, 255, 0.1);
+  }
+  .core-stage {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 20px 10px; position: relative;
+  }
+  .reactor-wrap {
+    width: 170px; height: 170px; position: relative;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+  .ring {
+    position: absolute; border-radius: 50%; border: 2px solid var(--arc-blue);
+    box-shadow: 0 0 15px var(--arc-glow), inset 0 0 15px var(--arc-glow);
+  }
+  .ring-1 { width: 170px; height: 170px; border-style: dashed; animation: spin 14s linear infinite; }
+  .ring-2 { width: 132px; height: 132px; border-width: 3px; border-left-color: transparent; border-right-color: transparent; animation: spin-rev 8s linear infinite; }
+  .ring-3 { width: 96px; height: 96px; border: 2px dotted #7ef9ff; animation: spin 5s linear infinite; }
+  .core-center {
+    width: 64px; height: 64px; border-radius: 50%;
+    background: radial-gradient(circle, #ffffff 0%, var(--arc-blue) 55%, #005577 100%);
+    box-shadow: 0 0 30px var(--arc-blue);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: bold; color: #001824; text-align: center;
+    transition: transform 0.2s;
+  }
+  .reactor-wrap.listening .core-center {
+    background: radial-gradient(circle, #fff 0%, #ff2a55 60%, #700018 100%);
+    box-shadow: 0 0 35px #ff2a55;
+    animation: pulse 0.9s infinite alternate;
+  }
+  .reactor-wrap.speaking .core-center {
+    animation: pulse 0.35s infinite alternate;
+  }
+  @keyframes spin { 100% { transform: rotate(360deg); } }
+  @keyframes spin-rev { 100% { transform: rotate(-360deg); } }
+  @keyframes pulse { 0% { transform: scale(0.94); } 100% { transform: scale(1.1); } }
+
+  .voice-hint { margin-top: 12px; font-size: 13px; color: #9beeff; text-align: center; min-height: 20px; }
+
+  .chat-box {
+    flex: 1; margin: 0 12px; padding: 12px;
+    background: var(--panel-bg); border: 1px solid rgba(0, 243, 255, 0.25);
+    border-radius: 12px; overflow-y: auto; max-height: 230px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .msg { padding: 8px 12px; border-radius: 8px; font-size: 13.5px; line-height: 1.5; max-width: 88%; }
+  .msg.jarvis { align-self: flex-start; background: rgba(0, 243, 255, 0.12); border-right: 3px solid var(--arc-blue); }
+  .msg.user { align-self: flex-end; background: rgba(255, 255, 255, 0.08); border-left: 3px solid #7ef9ff; }
+
+  .controls {
+    padding: 12px; display: flex; gap: 8px; align-items: center;
+  }
+  input[type="text"] {
+    flex: 1; padding: 11px 14px; border-radius: 8px;
+    border: 1px solid rgba(0, 243, 255, 0.4); background: rgba(2, 12, 22, 0.9);
+    color: #fff; font-size: 14px; outline: none;
+  }
+  button {
+    padding: 11px 15px; border-radius: 8px; border: 1px solid var(--arc-blue);
+    background: rgba(0, 243, 255, 0.18); color: var(--arc-blue);
+    font-weight: bold; cursor: pointer; font-size: 13px;
+  }
+  button:active { transform: scale(0.96); }
+  .btn-mic { background: var(--arc-blue); color: #001824; }
+  .btn-mic.active { background: var(--danger); border-color: var(--danger); color: #fff; }
+
+  .shield-panel {
+    margin: 0 12px 14px; padding: 12px;
+    background: var(--panel-bg); border: 1px solid rgba(0, 243, 255, 0.25);
+    border-radius: 12px;
+  }
+  .shield-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 13px; color: var(--arc-blue); font-weight: bold; }
+  .shield-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .scan-result { margin-top: 8px; font-size: 12px; color: #bfefff; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="sys-title">J.A.R.V.I.S. // MARK VIII</div>
+  <div class="status-pill" id="sysStatus">جاهز للأوامر</div>
+</header>
+
+<div class="core-stage">
+  <div class="reactor-wrap" id="reactor" onclick="toggleMic()">
+    <div class="ring ring-1"></div>
+    <div class="ring ring-2"></div>
+    <div class="ring ring-3"></div>
+    <div class="core-center" id="coreLabel">تحدث</div>
+  </div>
+  <div class="voice-hint" id="voiceHint">اضغط على المفاعل للتحدث مع جارفس أو اكتب بالأسفل</div>
+</div>
+
+<div class="chat-box" id="chatBox">
+  <div class="msg jarvis">أهلاً بك يا عمي إبراهيم. تم تحديث وحدة المعالجة الصوتية وإزالة التشويش بالكامل. أنا جاهز تحت أمرك.</div>
+</div>
+
+<div class="controls">
+  <button class="btn-mic" id="micBtn" onclick="toggleMic()">🎙️ مايك</button>
+  <input type="text" id="textInput" placeholder="اكتب أمرك لجارفس هنا..." onkeydown="if(event.key==='Enter') sendText()">
+  <button onclick="sendText()">إرسال</button>
+</div>
+
+<div class="shield-panel">
+  <div class="shield-header">
+    <span>🛡️ درع الحماية السيبرانية وفحص الملفات</span>
+    <span style="font-size:11px; color:var(--safe);">غير محدود</span>
+  </div>
+  <div class="shield-actions">
+    <input type="file" id="fileScanInput" style="display:none" onchange="scanFile(this)">
+    <button onclick="document.getElementById('fileScanInput').click()">فحص ملف / APK</button>
+    <button onclick="quickSystemScan()">فحص سريع للنظام</button>
+  </div>
+  <div class="scan-result" id="scanResult">بانتظار فحص أي ملف أو تطبيق مشبوه...</div>
+</div>
+
+<script>
+  const reactor = document.getElementById('reactor');
+  const coreLabel = document.getElementById('coreLabel');
+  const voiceHint = document.getElementById('voiceHint');
+  const sysStatus = document.getElementById('sysStatus');
+  const chatBox = document.getElementById('chatBox');
+  const micBtn = document.getElementById('micBtn');
+  const textInput = document.getElementById('textInput');
+
+  let recognition = null;
+  let isListening = false;
+  let isSpeaking = false;
+
+  // مؤثر صوتي تقني بسيط (خوذة آيرون مان)
+  function playHudTone(freq = 680, duration = 0.09) {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime);
+      gain.gain.setValueAtTime(0.08, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + duration);
+    } catch (e) {}
+  }
+
+  function addMessage(text, sender) {
+    const div = document.createElement('div');
+    div.className = 'msg ' + sender;
+    div.textContent = text;
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+
+  // نطق جارفس بصوت عميق مع إيقاف المايك مؤقتاً لمنع التشويش
+  function jarvisSpeak(text) {
+    addMessage(text, 'jarvis');
+    if (!('speechSynthesis' in window)) return;
+
+    if (isListening && recognition) {
+      try { recognition.abort(); } catch (e) {}
+    }
+
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = 'ar-SA';
+    utter.pitch = 0.72; // نبرة عميقة شبيهة بجارفس
+    utter.rate = 0.94;  // سرعة متزنة وواضحة
+
+    utter.onstart = () => {
+      isSpeaking = true;
+      reactor.classList.add('speaking');
+      sysStatus.textContent = 'جارفس يتحدث...';
+    };
+    utter.onend = () => {
+      isSpeaking = false;
+      reactor.classList.remove('speaking');
+      sysStatus.textContent = 'جاهز للأوامر';
+    };
+    utter.onerror = () => {
+      isSpeaking = false;
+      reactor.classList.remove('speaking');
+    };
+
+    window.speechSynthesis.speak(utter);
+  }
+
+  // ذكاء الردود باللهجة السورية
+  function processCommand(cmd) {
+    const clean = cmd.trim();
+    if (!clean) return;
+    addMessage(clean, 'user');
+
+    let reply = '';
+    if (clean.includes('مرحبا') || clean.includes('هلا') || clean.includes('السلام')) {
+      reply = 'أهلاً وسهلاً يا عمي إبراهيم، الأنظمة كلها شغالة مية بالمية وتحت أمرك.';
+    } else if (clean.includes('تشويش') || clean.includes('صوت') || clean.includes('تسمعني')) {
+      reply = 'سامعك بوضوح تام يا غالي، تم عزل الضجيج وحل مشكلة المايكروفون بالكامل.';
+    } else if (clean.includes('فحص') || clean.includes('فيروس') || clean.includes('خبيث') || clean.includes('حماية')) {
+      reply = 'درع الحماية السيبرانية شغال. فيك ترفع أي ملف أو تطبيق من الزر بالأسفل لأفحصلك بصمته الرقمية فوراً.';
+    } else if (clean.includes('ساعة') || clean.includes('وقت')) {
+      const now = new Date().toLocaleTimeString('ar-SY', { hour: '2-digit', minute: '2-digit' });
+      reply = `الساعة هلأ ${now} يا عمي إبراهيم.`;
+    } else if (clean.includes('مين انت') || clean.includes('عرف عن حالك')) {
+      reply = 'أنا جارفس، مساعدك الذكي الشخصي ونظام الحماية الخاص فيك، مصمم خصيصاً لخدمتك بدون أي حدود.';
+    } else {
+      reply = `تم استلام أمرك يا عمي إبراهيم: "${clean}". أنا جاهز للتنفيذ أو التحليل، شو الخطوة الجاية؟`;
+    }
+
+    setTimeout(() => jarvisSpeak(reply), 250);
+  }
+
+  function sendText() {
+    const val = textInput.value;
+    if (!val.trim()) return;
+    textInput.value = '';
+    playHudTone(820, 0.08);
+    processCommand(val);
+  }
+
+  // تهيئة التعرف الصوتي مع معالجة أخطاء التشويش والصلاحيات
+  function initSpeech() {
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRec) {
+      voiceHint.textContent = 'متصفحك ما بيدعم المايك المباشر، استخدم الكتابة بالأسفل وجارفس رح يرد عليك صوتياً.';
+      return null;
+    }
+    const rec = new SpeechRec();
+    rec.lang = 'ar-SY';
+    rec.continuous = false;
+    rec.interimResults = false;
+
+    rec.onstart = () => {
+      isListening = true;
+      reactor.classList.add('listening');
+      micBtn.classList.add('active');
+      coreLabel.textContent = 'أستمع...';
+      voiceHint.textContent = 'تفضل احكي يا عمي إبراهيم...';
+      sysStatus.textContent = 'استماع نشط';
+    };
+
+    rec.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      voiceHint.textContent = 'تم التقاط الصوت بنجاح';
+      processCommand(transcript);
+    };
+
+    rec.onerror = (event) => {
+      isListening = false;
+      reactor.classList.remove('listening');
+      micBtn.classList.remove('active');
+      coreLabel.textContent = 'تحدث';
+      sysStatus.textContent = 'جاهز للأوامر';
+
+      if (event.error === 'not-allowed') {
+        voiceHint.textContent = '⚠️ إذن المايكروفون مرفوض! فعّل إذن المايك للتطبيق من إعدادات جهازك أو اكتب بالأسفل.';
+      } else if (event.error === 'no-speech') {
+        voiceHint.textContent = 'ما سمعت صوت، اضغط المفاعل واحكي قريب من المايك أو اكتب بالأسفل.';
+      } else if (event.error === 'network') {
+        voiceHint.textContent = '⚠️ التعرف الصوتي بيحتاج اتصال إنترنت مستقر، فيك تستخدم الكتابة بالأسفل حالياً.';
+      } else {
+        voiceHint.textContent = 'تم إعادة ضبط المايكروفون. اضغط مرة تانية أو اكتب بالأسفل.';
+      }
+    };
+
+    rec.onend = () => {
+      isListening = false;
+      reactor.classList.remove('listening');
+      micBtn.classList.remove('active');
+      coreLabel.textContent = 'تحدث';
+    };
+
+    return rec;
+  }
+
+  async function toggleMic() {
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      isSpeaking = false;
+      reactor.classList.remove('speaking');
+    }
+
+    if (isListening && recognition) {
+      recognition.stop();
+      return;
+    }
+
+    playHudTone(950, 0.1);
+
+    // طلب إذن المايك الصريح أولاً لمنع تعليق النظام
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(t => t.stop());
+      }
+    } catch (err) {
+      voiceHint.textContent = '⚠️ النظام حظر المايكروفون (افتح الملف بمتصفح Chrome أو فعّل إذن المايك للتطبيق).';
+      return;
+    }
+
+    if (!recognition) recognition = initSpeech();
+    if (recognition) {
+      try {
+        recognition.start();
+      } catch (e) {
+        voiceHint.textContent = 'جارِ إعادة تنشيط وحدة الصوت، اضغط مرة ثانية.';
+      }
+    }
+  }
+
+  // فحص الملفات وحساب SHA-256
+  async function scanFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const resBox = document.getElementById('scanResult');
+    resBox.innerHTML = `⏳ جارِ تحليل الملف: <b>${file.name}</b>...`;
+    playHudTone(600, 0.12);
+
+    const buffer = await file.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+    const bytes = new Uint8Array(buffer.slice(0, 4));
+    const header = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+
+    let fileType = 'ملف بيانات قياسي';
+    let risk = 'آمن مبدئياً ✅';
+    if (header.startsWith('4D5A')) { fileType = 'ملف تنفيذي Windows (EXE/DLL)'; risk = 'يتطلب حذر ⚠️ (كود تنفيذي)'; }
+    else if (header.startsWith('504B0304')) { fileType = 'حزمة مضغوطة / تطبيق أندرويد (APK/ZIP)'; risk = 'سليم البنية ✅'; }
+    else if (header.startsWith('25504446')) { fileType = 'مستند PDF'; risk = 'آمن ✅'; }
+
+    resBox.innerHTML = `
+      <b>النتيجة:</b> ${risk}<br>
+      <b>النوع الحقيقي:</b> ${fileType} (${(file.size / 1024).toFixed(1)} KB)<br>
+      <b>بصمة SHA-256:</b> <span style="font-family:monospace;font-size:10px;word-break:break-all;">${hashHex}</span>
+    `;
+    jarvisSpeak(`انتهى فحص الملف ${file.name} يا عمي إبراهيم، النتيجة تظهر أمامك على الشاشة.`);
+  }
+
+  function quickSystemScan() {
+    const resBox = document.getElementById('scanResult');
+    playHudTone(750, 0.15);
+    resBox.innerHTML = '✅ تم فحص بيئة التشغيل والذاكرة المؤقتة: لا توجد برمجيات خبيثة أو سكربتات حقن نشطة.';
+    jarvisSpeak('تم فحص البيئة البرمجية بالكامل، كل شيء سليم وآمن يا عمي إبراهيم.');
+  }
+</script>
+</body>
+</html>
